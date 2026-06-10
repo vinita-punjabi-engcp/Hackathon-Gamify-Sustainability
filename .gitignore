@@ -1,0 +1,12 @@
+# Local Database Storage
+*.db
+*.db-journal
+
+# Python Environment logs & artifacts
+__pycache__/
+*.pyc
+*.log
+
+# IDE files
+.vscode/
+.idea/
