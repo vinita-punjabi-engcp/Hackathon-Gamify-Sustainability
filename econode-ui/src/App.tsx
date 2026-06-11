@@ -56,6 +56,8 @@ export default function App() {
   const [seeding, setSeeding] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<LeaderboardEntry[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
 
   const fetchLeaderboard = useCallback(async () => {
     try {
@@ -102,7 +104,7 @@ export default function App() {
     await handleTeamClick(teamName)
   }
 
-  // Get all teams for search
+  // Get all teams for the carbon charts
   const allTeams: LeaderboardEntry[] = [
     ...(leaderboard?.top_performers_green_zone ?? []),
     ...(leaderboard?.bottom_performers_action_required ?? []),
@@ -111,12 +113,38 @@ export default function App() {
       index === self.findIndex((t) => t.team_name === team.team_name),
   )
 
-  // Filter teams based on search query
-  const searchResults = searchQuery.trim() 
-    ? allTeams.filter(team =>
-        team.team_name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : []
+  // Server-side search: debounce the query and hit the /api/search endpoint
+  useEffect(() => {
+    const query = searchQuery.trim()
+    if (!query) {
+      setSearchResults([])
+      setSearchLoading(false)
+      return
+    }
+
+    setSearchLoading(true)
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/search?query=${encodeURIComponent(query)}&sort_by=${sortBy}`,
+          { signal: controller.signal },
+        )
+        if (!res.ok) throw new Error('Search API error')
+        const data: { results: LeaderboardEntry[] } = await res.json()
+        setSearchResults(data.results ?? [])
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') setSearchResults([])
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 250)
+
+    return () => {
+      controller.abort()
+      clearTimeout(timer)
+    }
+  }, [searchQuery, sortBy])
 
   const refreshLatestData = async () => {
     setSeeding(true)
@@ -168,7 +196,7 @@ export default function App() {
                 onSearchChange={handleSearchTeam}
                 searchResults={searchResults}
                 onSelectResult={handleSelectSearchResult}
-                loading={loadingTeam}
+                loading={searchLoading || loadingTeam}
               />
               <SummaryCards
                 totalTeams={leaderboard.metadata.total_teams_logged}

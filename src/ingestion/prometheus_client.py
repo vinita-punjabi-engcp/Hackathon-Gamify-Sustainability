@@ -64,3 +64,30 @@ class PrometheusClient(BaseHttpClient):
         except Exception as e:
             print(f"❌ Connection issue: {e}")
             return NamespaceMetrics(namespace=namespace, active_cores=0.0)
+        
+    def get_bulk_cluster_metrics(self) -> dict:
+        """Fetches CPU usage for ALL namespaces in a single API call."""
+        print("📡 Fetching bulk telemetry for all namespaces from Prometheus...")
+        
+        # PromQL: Sums up the active CPU cores across the cluster, grouped by namespace
+        promql_query = "sum(rate(container_cpu_usage_seconds_total[5m])) by (namespace)"
+        
+        try:
+            token = self._get_access_token()
+            headers = {"Authorization": token, "Accept": "application/json"}
+            
+            data = self.get(endpoint="/api/v1/query", headers=headers, params={"query": promql_query})
+            results = data.get("data", {}).get("result", [])
+            
+            metrics_map = {}
+            for item in results:
+                ns = item["metric"].get("namespace")
+                if ns and ns != "kube-system":
+                    # PromQL returns value as [timestamp, "string_value"]
+                    core_value = float(item["value"][1])
+                    metrics_map[ns] = core_value
+                    
+            return metrics_map
+        except Exception as e:
+            print(f"⚠️ Bulk telemetry fetch failed: {e}")
+            return {}

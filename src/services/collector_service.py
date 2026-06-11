@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from src.db.session import SessionLocal
-from src.db.models import ClusterMetric, PipelineMetric
+from src.db.models import ClusterMetric, PipelineMetric, TeamMetricModel
 from src.ingestion.ado_client import AzureDevOpsClient
 from src.ingestion.prometheus_client import PrometheusClient
 from src.core.carbon_math import CarbonMath
@@ -39,7 +39,7 @@ class MetricsCollectorService:
                     pipeline_name=run.pipeline_name,
                     duration_mins=run.duration_mins,
                     status=run.status,
-                    result=run.result,
+                    result=run.result if run.result is not None else "pending",
                     carbon_co2g=carbon_score
                 )
                 db.add(metric_record)
@@ -82,5 +82,75 @@ class MetricsCollectorService:
             db.rollback()
             print(f"❌ Database Transaction Failed for cluster tracking: {e}")
             raise e
+        finally:
+            db.close()
+
+    def sync_team_metadata(self, namespaces: list[str]) -> None:
+        """Auto-generates UI configuration profiles for newly discovered namespaces."""
+        print(f"🤖 Synchronizing metadata registry for {len(namespaces)} namespaces...")
+        db: Session = SessionLocal()
+        try:
+            added_count = 0
+            for ns in namespaces:
+                exists = db.query(TeamMetricModel).filter(TeamMetricModel.namespace == ns).first()
+                if not exists:
+                    clean_name = ns.replace("-", " ").title()
+                    new_team = TeamMetricModel(
+                        team_name=clean_name,
+                        namespace=ns,
+                        region="eastus",
+                        resource_quota_cpu=8.0,
+                        resource_quota_mem=32.0
+                    )
+                    db.add(new_team)
+                    added_count += 1
+            
+            db.commit()
+            if added_count > 0:
+                print(f"💾 Successfully registered {added_count} new team profiles for the UI.")
+            else:
+                print("⏭️ All teams already registered in metadata. Skipping.")
+                
+        except Exception as e:
+            db.rollback()
+            print(f"❌ Database Transaction Failed for metadata sync: {e}")
+        finally:
+            db.close()
+
+    
+    def collect_and_persist_bulk_cluster_metrics(self) -> list[str]:
+        """Processes and saves cluster metrics in a single bulk database transaction."""
+        prom_client = PrometheusClient()
+        metrics_map = prom_client.get_bulk_cluster_metrics()
+        
+        if not metrics_map:
+            return []
+            
+        db: Session = SessionLocal()
+        try:
+            records_to_insert = []
+            namespaces_found = list(metrics_map.keys())
+            
+            for ns, cores in metrics_map.items():
+                carbon_score = CarbonMath.calculate_cluster_co2(active_cores=cores)
+                
+                record = ClusterMetric(
+                    namespace=ns,
+                    active_cores=cores,
+                    carbon_co2g=carbon_score
+                )
+                records_to_insert.append(record)
+            
+            # 💥 BULK INSERT: Saves hundreds of rows in 1 millisecond
+            db.add_all(records_to_insert)
+            db.commit()
+            
+            print(f"💾 Bulk committed {len(records_to_insert)} cluster metrics to database.")
+            return namespaces_found
+            
+        except Exception as e:
+            db.rollback()
+            print(f"❌ Bulk DB Insert Failed: {e}")
+            return []
         finally:
             db.close()
