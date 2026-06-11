@@ -277,12 +277,12 @@ export default function Leaderboard({ leaderboard, onTeamClick }: LeaderboardPro
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Green Zone */}
         <div className="animate-slide-in-left">
           <ZoneHeader
             title="🌿 Green Zone"
-            subtitle="Top performers — leading by example"
+            subtitle="Top 5 performers — leading by example"
             count={top.length}
             isGreen
           />
@@ -306,7 +306,7 @@ export default function Leaderboard({ leaderboard, onTeamClick }: LeaderboardPro
         <div className="animate-slide-in-right">
           <ZoneHeader
             title="⚠️ Under the Microscope"
-            subtitle="Highest waste — immediate optimization needed"
+            subtitle="Bottom 5 teams — immediate optimization needed"
             count={bottom.length}
             isGreen={false}
           />
