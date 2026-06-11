@@ -17,6 +17,28 @@ class PrometheusClient(BaseHttpClient):
         resource = "https://prometheus.monitor.azure.com/.default"
         access_token = credential.get_token(resource).token
         return f"Bearer {access_token}"
+    
+    def discover_all_active_namespaces(self) -> list[str]:
+        """Queries Prometheus metadata to dynamically discover every active namespace."""
+        print("📡 Discovering active cluster namespaces via Prometheus metadata...")
+        promql_query = "count(container_cpu_usage_seconds_total) by (namespace)"
+        
+        try:
+            token = self._get_access_token()
+            headers = {"Authorization": token, "Accept": "application/json"}
+            
+            data = self.get(endpoint="/api/v1/query", headers=headers, params={"query": promql_query})
+            results = data.get("data", {}).get("result", [])
+            
+            namespaces = [
+                item["metric"]["namespace"] 
+                for item in results 
+                if "namespace" in item["metric"] and item["metric"]["namespace"] != "kube-system"
+            ]
+            return namespaces
+        except Exception as e:
+            print(f"⚠️ Dynamic discovery failed: {e}. Falling back to default scope.")
+            return ["search", "1ds-app"]
 
     def fetch_namespace_metrics(self, namespace: str) -> NamespaceMetrics:
         """Queries Azure Prometheus and returns a validated DTO."""
