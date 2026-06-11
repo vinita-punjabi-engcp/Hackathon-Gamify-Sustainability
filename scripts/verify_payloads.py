@@ -6,7 +6,7 @@ from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.ingestion.ado_client import AzureDevOpsClient
-from src.ingestion.grafana_client import GrafanaClient
+from src.ingestion.prometheus_client import PrometheusClient
 
 def parse_iso_time(time_str: str) -> datetime:
     """Helper to cleanly parse Azure ISO timestamps."""
@@ -26,7 +26,7 @@ def run_diagnostic_audit():
     ]
 
     ado_client = AzureDevOpsClient()
-    prom_client = GrafanaClient()
+    prom_client = PrometheusClient()
 
     all_systems_go = True
 

@@ -5,26 +5,23 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.ingestion.ado_client import AzureDevOpsClient
-from src.ingestion.grafana_client import GrafanaClient
+from src.ingestion.prometheus_client import PrometheusClient
 
 def main():
     print("🎬 Initializing Dual-Source Integration Spike...\n")
 
-    # 1. Test Azure DevOps Client
+    # 1. Test Refactored ADO
     ado = AzureDevOpsClient()
-    ado_data = ado.fetch_raw_builds("search")
-    if ado_data and "value" in ado_data:
-        print(f"✅ ADO Connectivity Verified! Retrieved {len(ado_data['value'])} build runs.")
-    else:
-        print("❌ ADO Validation Failed.")
+    recent_runs = ado.fetch_recent_builds("search", top=1)
+    for run in recent_runs:
+        print(f"✅ ADO Run: {run.pipeline_name} (ID: {run.build_id}) lasted {run.duration_mins:.2f} mins")
 
     print("\n" + "="*50 + "\n")
 
-    # 2. Test Grafana/Prometheus Client
-    grafana = GrafanaClient()
-    # Testing against the active search namespace we saw on your dashboard
-    cpu_cores = grafana.fetch_namespace_cpu_cores("search")
-    print(f"✅ Grafana Connectivity Verified! Active CPU load: {cpu_cores} cores.")
+    # 2. Test Refactored Prometheus
+    prom = PrometheusClient()
+    metrics = prom.fetch_namespace_metrics("search")
+    print(f"✅ Prometheus: {metrics.namespace} is using {metrics.active_cores:.2f} cores.")
 
 if __name__ == "__main__":
     main()
