@@ -15,6 +15,57 @@ interface Badge {
   pulse?: boolean
 }
 
+function getBadgeForZone(efficiency: number, isGreenZone: boolean): Badge {
+  if (isGreenZone) {
+    // Green zone - show positive badges based on efficiency
+    if (efficiency >= 90)
+      return {
+        label: '🌱 CHAMPION',
+        bg: 'rgba(0,255,135,0.12)',
+        text: '#00ff87',
+        border: 'rgba(0,255,135,0.35)',
+      }
+    if (efficiency >= 70)
+      return {
+        label: '⚡ OPTIMIZED',
+        bg: 'rgba(0,212,160,0.12)',
+        text: '#00d4a0',
+        border: 'rgba(0,212,160,0.35)',
+      }
+    // Even lower efficiency in green zone gets MONITOR (still good performance in this sort)
+    return {
+      label: '👀 SOLID',
+      bg: 'rgba(0,255,135,0.12)',
+      text: '#00ff87',
+      border: 'rgba(0,255,135,0.35)',
+    }
+  } else {
+    // Red zone - show warning badges
+    if (efficiency >= 70)
+      return {
+        label: '⚠️ REVIEW',
+        bg: 'rgba(252,129,129,0.12)',
+        text: '#fc8181',
+        border: 'rgba(252,129,129,0.4)',
+      }
+    if (efficiency >= 40)
+      return {
+        label: '⚠️ CAUTION',
+        bg: 'rgba(252,129,129,0.12)',
+        text: '#fc8181',
+        border: 'rgba(252,129,129,0.4)',
+      }
+    // Low efficiency in red zone = critical
+    return {
+      label: '🚨 CRITICAL',
+      bg: 'rgba(252,129,129,0.12)',
+      text: '#fc8181',
+      border: 'rgba(252,129,129,0.4)',
+      pulse: true,
+    }
+  }
+}
+
 function getBadge(efficiency: number): Badge {
   if (efficiency >= 90)
     return {
@@ -58,6 +109,41 @@ function getRegionFlag(region: string): string {
   if (region.includes('us')) return '🇺🇸'
   if (region.includes('asia')) return '🌏'
   return '🌍'
+}
+
+function EnvironmentalImpact({ carbon, isGreenZone }: { carbon: number; isGreenZone: boolean }) {
+  // 1 tree absorbs ~20kg CO2 per year
+  const treesEquivalent = Math.round((carbon / 20) * 100) / 100
+  
+  if (isGreenZone) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-2xl">🌳</span>
+        <div className="text-xs">
+          <p className="text-eco-green font-semibold">
+            ✓ Good for Environment
+          </p>
+          <p className="text-eco-muted text-xs mt-0.5">
+            Equivalent to {treesEquivalent} tree{treesEquivalent !== 1 ? 's' : ''} planted
+          </p>
+        </div>
+      </div>
+    )
+  } else {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-2xl">⚠️</span>
+        <div className="text-xs">
+          <p className="text-eco-red font-semibold">
+            Killing {treesEquivalent} tree{treesEquivalent !== 1 ? 's' : ''}/day
+          </p>
+          <p className="text-eco-muted text-xs mt-0.5">
+            High emissions need optimization
+          </p>
+        </div>
+      </div>
+    )
+  }
 }
 
 function EfficiencyBar({ value, delay = 0 }: { value: number; delay?: number }) {
@@ -114,7 +200,8 @@ function TeamCard({
     return () => clearTimeout(t)
   }, [delay])
 
-  const badge = getBadge(entry.efficiency_score_pct)
+  // Badge is now based on ZONE + efficiency context
+  const badge = getBadgeForZone(entry.efficiency_score_pct, isGreenZone)
   const rank = getRankDisplay(entry.rank_placement)
 
   const borderBase = isGreenZone ? 'rgba(0,255,135,0.12)' : 'rgba(252,129,129,0.12)'
@@ -191,6 +278,11 @@ function TeamCard({
             <span className="text-eco-muted text-xs font-normal ml-1">kg</span>
           </div>
         </div>
+      </div>
+
+      {/* Environmental Impact Message */}
+      <div className="mb-3 p-3 rounded-lg bg-eco-bg/40 border border-eco-border/20">
+        <EnvironmentalImpact carbon={entry.yesterday_carbon_kg} isGreenZone={isGreenZone} />
       </div>
 
       {/* Footer: Region + CTA */}

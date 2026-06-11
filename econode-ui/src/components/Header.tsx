@@ -1,15 +1,13 @@
-import { useState, useEffect } from 'react'
-import { RefreshCw, Zap, Leaf, BarChart2, SortAsc } from 'lucide-react'
+import { useState, useEffect, memo } from 'react'
+import { Zap, Leaf, BarChart2, SortAsc } from 'lucide-react'
 
 interface HeaderProps {
   sortBy: 'efficiency' | 'carbon'
   onSortChange: (v: 'efficiency' | 'carbon') => void
-  onSeed: () => void
-  seeding: boolean
-  lastUpdated: Date
-  countdown: number
-  totalCarbon: number
   onRefresh: () => void
+  loading: boolean
+  lastUpdated: Date
+  totalCarbon: number
 }
 
 function useLiveCarbonTick(totalCarbon: number) {
@@ -25,15 +23,47 @@ function useLiveCarbonTick(totalCarbon: number) {
   return display
 }
 
+// Memoized sort controls to prevent re-renders when countdown changes
+const SortControls = memo(({
+  sortBy,
+  onSortChange,
+}: {
+  sortBy: 'efficiency' | 'carbon'
+  onSortChange: (v: 'efficiency' | 'carbon') => void
+}) => (
+  <div className="hidden sm:flex items-center gap-1 bg-eco-surface border border-eco-border/40 rounded-xl p-1">
+    <button
+      onClick={() => onSortChange('efficiency')}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+        sortBy === 'efficiency'
+          ? 'bg-eco-green text-eco-bg shadow-sm'
+          : 'text-eco-muted hover:text-white'
+      }`}
+    >
+      <BarChart2 className="w-3.5 h-3.5" />
+      Efficiency
+    </button>
+    <button
+      onClick={() => onSortChange('carbon')}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+        sortBy === 'carbon'
+          ? 'bg-eco-blue text-white shadow-sm'
+          : 'text-eco-muted hover:text-white'
+      }`}
+    >
+      <SortAsc className="w-3.5 h-3.5" />
+      Carbon
+    </button>
+  </div>
+))
+
 export default function Header({
   sortBy,
   onSortChange,
-  onSeed,
-  seeding,
-  lastUpdated,
-  countdown,
-  totalCarbon,
   onRefresh,
+  loading,
+  lastUpdated,
+  totalCarbon,
 }: HeaderProps) {
   const liveCo2 = useLiveCarbonTick(totalCarbon)
 
@@ -81,52 +111,18 @@ export default function Header({
           {/* Right controls */}
           <div className="flex items-center gap-2">
             {/* Sort Toggle */}
-            <div className="hidden sm:flex items-center gap-1 bg-eco-surface border border-eco-border/40 rounded-xl p-1">
-              <button
-                onClick={() => onSortChange('efficiency')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  sortBy === 'efficiency'
-                    ? 'bg-eco-green text-eco-bg shadow-sm'
-                    : 'text-eco-muted hover:text-white'
-                }`}
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-                Efficiency
-              </button>
-              <button
-                onClick={() => onSortChange('carbon')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  sortBy === 'carbon'
-                    ? 'bg-eco-blue text-white shadow-sm'
-                    : 'text-eco-muted hover:text-white'
-                }`}
-              >
-                <SortAsc className="w-3.5 h-3.5" />
-                Carbon
-              </button>
-            </div>
+            <SortControls sortBy={sortBy} onSortChange={onSortChange} />
 
-            {/* Refresh with countdown */}
+            {/* Refresh Data button */}
             <button
               onClick={onRefresh}
-              title={`Next refresh in ${countdown}s`}
-              className="relative flex items-center gap-1.5 px-3 py-2 bg-eco-surface border border-eco-border/40
-                rounded-xl text-eco-muted hover:text-white hover:border-eco-border transition-all group"
-            >
-              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-              <span className="text-xs font-mono hidden sm:inline">{countdown}s</span>
-            </button>
-
-            {/* Seed button */}
-            <button
-              onClick={onSeed}
-              disabled={seeding}
+              disabled={loading}
               className="flex items-center gap-1.5 px-4 py-2 bg-eco-green text-eco-bg font-semibold text-sm
                 rounded-xl hover:bg-eco-teal transition-all duration-200 disabled:opacity-60
                 shadow-md hover:shadow-eco-green/30 hover:shadow-lg"
             >
-              <Zap className={`w-4 h-4 ${seeding ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">{seeding ? 'Seeding…' : 'Seed Data'}</span>
+              <Zap className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{loading ? 'Seeding…' : 'SEED DATA'}</span>
             </button>
           </div>
         </div>
@@ -142,7 +138,6 @@ export default function Header({
             })}
           </span>
           <span className="text-eco-border">·</span>
-          <span>Kubernetes Namespace GreenOps v2.0</span>
         </div>
       </div>
     </header>
