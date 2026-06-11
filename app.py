@@ -133,6 +133,8 @@ def get_leaderboard(sort_by: str = Query("efficiency", description="Criteria: 'e
     for (ns,) in unique_namespaces:
         meta_record = db.query(TeamMetricModel).filter(TeamMetricModel.namespace == ns).first()
         metrics_computed = compute_live_metrics(namespace=ns, db=db, team_meta=meta_record)
+        if metrics_computed["cpu_usage_cores"] > 0.1:
+            processed_list.append(metrics_computed)
         processed_list.append(metrics_computed)
 
     # Compute Global Shared Aggregates for UI Header Panels
