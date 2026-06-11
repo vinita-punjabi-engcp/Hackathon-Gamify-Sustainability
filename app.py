@@ -183,43 +183,78 @@ if __name__ == "__main__":
     uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
 
 
-class SearchSuggestion(BaseModel):
+# --- 🔎 SEARCH SCHEMAS ---
+class SearchResultEntry(BaseModel):
+    """Mirrors a leaderboard row so the UI dropdown can render results identically."""
     team_name: str
     namespace: str
+    region: str
+    efficiency_score_pct: float
+    yesterday_carbon_kg: float
+    wasted_carbon_kg: float
+    waste_ratio: float
+    rank_placement: int
 
 class SearchResponse(BaseModel):
-    query_string: str
+    query: str
     total_matches_found: int
-    options: List[SearchSuggestion]
+    results: List[SearchResultEntry]
+
+
+def _build_ranked_namespaces(db: Session, sort_by: str = "efficiency") -> List[dict]:
+    """
+    Discovers every active namespace in telemetry (same source as the leaderboard),
+    computes live sustainability metrics for each, and assigns a leaderboard rank.
+    """
+    unique_namespaces = db.query(ClusterMetric.namespace).distinct().all()
+
+    processed_list = []
+    seen = set()
+    for (ns,) in unique_namespaces:
+        if ns in seen:
+            continue
+        seen.add(ns)
+        meta_record = db.query(TeamMetricModel).filter(TeamMetricModel.namespace == ns).first()
+        processed_list.append(compute_live_metrics(namespace=ns, db=db, team_meta=meta_record))
+
+    if sort_by == "carbon":
+        processed_list.sort(key=lambda x: x["yesterday_carbon_kg"])
+    else:
+        processed_list.sort(key=lambda x: x["efficiency_score_pct"], reverse=True)
+
+    for index, item in enumerate(processed_list, start=1):
+        item["rank_placement"] = index
+
+    return processed_list
+
 
 @app.get("/api/search", response_model=SearchResponse)
-def search_teams_only(
-    query: str = Query(..., description="Case-insensitive search string targeting Team Names only"),
+def search_namespaces(
+    query: str = Query(..., description="Case-insensitive search string matched against namespace and team name"),
+    sort_by: str = Query("efficiency", description="Ranking criteria: 'efficiency' or 'carbon'"),
     db: Session = Depends(get_db)
 ):
     """
-    Scans the database columns matching 'team_name' against partial user inputs.
-    Returns clean key-value pairs to populate frontend interactive dropdown menus.
+    Server-side search over the live namespace metrics table that backs the leaderboard.
+    Matches the query against both namespace and team_name, and returns full leaderboard
+    rows (rank, efficiency, carbon, region) so the UI renders results exactly as before.
     """
     if not query.strip():
-        return {"query_string": query, "total_matches_found": 0, "options": []}
+        return SearchResponse(query=query, total_matches_found=0, results=[])
 
-    # Format query for case-insensitive SQL matching (e.g., "%1ds%")
-    search_term = f"%{query.lower()}%"
+    ranked = _build_ranked_namespaces(db, sort_by=sort_by)
 
-    # Query strictly against the team_name column
-    matched_records = db.query(TeamMetricModel).filter(
-        TeamMetricModel.team_name.cast(String).ilike(search_term)
-    ).all()
-
-    # Format the payload to supply options for the user interface dropdown
-    dropdown_options = [
-        SearchSuggestion(team_name=record.team_name, namespace=record.namespace)
-        for record in matched_records
+    term = query.lower().strip()
+    matches = [
+        item for item in ranked
+        if term in item["namespace"].lower() or term in item["team_name"].lower()
     ]
 
+    field_names = SearchResultEntry.model_fields.keys()
+    results = [SearchResultEntry(**{key: item[key] for key in field_names}) for item in matches]
+
     return SearchResponse(
-        query_string=query,
-        total_matches_found=len(dropdown_options),
-        options=dropdown_options
+        query=query,
+        total_matches_found=len(results),
+        results=results
     )
