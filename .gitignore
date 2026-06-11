@@ -1,12 +1,27 @@
-# Local Database Storage
+# Database
 *.db
 *.db-journal
+*.sqlite
+*.sqlite3
 
-# Python Environment logs & artifacts
+# Python
 __pycache__/
+*.py[cod]
 *.pyc
 *.log
+venv/
+.venv/
+.env
 
-# IDE files
+# Node / React UI
+node_modules/
+dist/
+dist-ssr/
+.vite/
+npm-debug.log*
+
+# IDE / OS
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db

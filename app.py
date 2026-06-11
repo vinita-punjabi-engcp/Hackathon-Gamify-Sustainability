@@ -2,6 +2,7 @@ import datetime
 from typing import Dict, List, Optional
 import uvicorn
 from fastapi import FastAPI, Query, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, String, Float, Integer, DateTime
 from sqlalchemy.ext.declarative import declarative_base
@@ -75,6 +76,14 @@ def get_db():
 
 # --- 🌐 FASTAPI APPLICATION ---
 app = FastAPI(title="EcoTrace AI - SQL Integrated GreenOps Engine", version="2.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # --- 🗂️ PYDANTIC RESPONSE SCHEMAS ---
