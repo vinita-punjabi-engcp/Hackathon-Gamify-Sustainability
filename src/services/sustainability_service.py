@@ -8,7 +8,7 @@ and server-side search results. Routes stay thin by delegating here.
 import datetime
 from typing import List, Optional
 
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from src.db.models import ClusterMetric, TeamMetricModel
@@ -33,6 +33,17 @@ class SustainabilityService:
         self.db = db
 
     # --- internal helpers -------------------------------------------------
+    def _green_score(self, active_cores: float) -> float:
+        """Percentile rank: % of namespaces consuming MORE cores. Higher = greener."""
+        subq = (
+            self.db.query(func.avg(ClusterMetric.active_cores).label("avg_cores"))
+            .group_by(ClusterMetric.namespace)
+            .subquery()
+        )
+        total = self.db.query(func.count()).select_from(subq).scalar() or 1
+        heavier = self.db.query(func.count()).select_from(subq).filter(subq.c.avg_cores > active_cores).scalar() or 0
+        return round((heavier / total) * 100, 1)
+
     def _meta_for(self, namespace: str) -> Optional[TeamMetricModel]:
         return (
             self.db.query(TeamMetricModel)
@@ -64,7 +75,7 @@ class SustainabilityService:
         quota_mem = team_meta.resource_quota_mem if team_meta else 32.0
 
         # 3. Calculate operational sustainability math
-        efficiency_score = round((active_cores / quota_cpu) * 100, 1) if quota_cpu > 0 else 0.0
+        green_score = self._green_score(active_cores)
         wasted_cores = max(0.0, quota_cpu - active_cores)
         wasted_carbon_kg = round(
             (wasted_cores * _WATTS_PER_CORE * _HOURS_PER_DAY * _AZURE_PUE * _GRID_INTENSITY_KG_PER_KWH) / 1000.0,
@@ -82,7 +93,7 @@ class SustainabilityService:
             "memory_usage_gb": 16.0,  # Placeholder telemetry
             "resource_quota_cpu": quota_cpu,
             "resource_quota_mem": quota_mem,
-            "efficiency_score_pct": min(100.0, efficiency_score),
+            "efficiency_score_pct": green_score,
             "yesterday_carbon_kg": yesterday_carbon_kg,
             "wasted_carbon_kg": wasted_carbon_kg,
             "waste_ratio": waste_ratio,
@@ -125,13 +136,13 @@ class SustainabilityService:
         data = self.compute_live_metrics(namespace=target_namespace, team_meta=meta_record)
 
         strategies = []
-        if data["efficiency_score_pct"] < 40.0:
+        if data["efficiency_score_pct"] < 50.0:
             strategies.append(
-                f"POTENTIAL OVER-PROVISIONING: System is running at {data['efficiency_score_pct']}% efficiency. "
-                f"Reducing resource limits closer to your active load will save up to {data['wasted_carbon_kg']}kg of idle CO2."
+                f"HIGH EMITTER: This service is in the bottom 50% of peers with a green score of {data['efficiency_score_pct']}%. "
+                f"Reducing active core consumption will improve your standing and save up to {data['wasted_carbon_kg']}kg of idle CO2."
             )
         else:
-            strategies.append("OPTIMAL TARGET BOUNDS: Allocation metrics match sustainability standards.")
+            strategies.append(f"GREEN ZONE: This service scores {data['efficiency_score_pct']}% — lighter than most peers on carbon footprint.")
 
         data["ai_mitigation_strategies"] = strategies
         return data
