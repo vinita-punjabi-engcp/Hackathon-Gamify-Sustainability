@@ -126,7 +126,7 @@ export default function CarbonCharts({ allTeams }: CarbonChartsProps) {
       </div>
 
       {/* Row 1: Efficiency + Carbon Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         <ChartCard
           title="⚡ Resource Efficiency Score"
           subtitle="% of allocated CPU actually used — higher is better"

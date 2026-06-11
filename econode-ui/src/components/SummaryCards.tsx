@@ -98,7 +98,7 @@ export default function SummaryCards({
       : '#fc8181'
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-4 gap-3 md:gap-4 animate-fade-in">
       <StatCard
         icon={<Users className="w-5 h-5 text-eco-blue" />}
         label="Teams Tracked"

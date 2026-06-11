@@ -365,7 +365,7 @@ export default function Leaderboard({ leaderboard, onTeamClick }: LeaderboardPro
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-6">
         {/* Green Zone */}
         <div className="animate-slide-in-left">
           <ZoneHeader

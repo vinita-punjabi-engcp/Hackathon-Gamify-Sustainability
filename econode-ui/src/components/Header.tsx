@@ -72,7 +72,7 @@ export default function Header({
       {/* Top accent line */}
       <div className="h-[2px] bg-gradient-to-r from-transparent via-eco-green to-transparent opacity-60" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 2xl:px-12">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo */}
           <div className="flex items-center gap-3 shrink-0">
