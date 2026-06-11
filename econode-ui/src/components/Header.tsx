@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { RefreshCw, Zap, Leaf, BarChart2, SortAsc } from 'lucide-react'
 
 interface HeaderProps {
@@ -7,7 +7,6 @@ interface HeaderProps {
   onSeed: () => void
   seeding: boolean
   lastUpdated: Date
-  countdown: number
   totalCarbon: number
   onRefresh: () => void
 }
@@ -25,17 +24,65 @@ function useLiveCarbonTick(totalCarbon: number) {
   return display
 }
 
+// Memoized sort controls to prevent re-renders when countdown changes
+const SortControls = memo(({
+  sortBy,
+  onSortChange,
+}: {
+  sortBy: 'efficiency' | 'carbon'
+  onSortChange: (v: 'efficiency' | 'carbon') => void
+}) => (
+  <div className="hidden sm:flex items-center gap-1 bg-eco-surface border border-eco-border/40 rounded-xl p-1">
+    <button
+      onClick={() => onSortChange('efficiency')}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+        sortBy === 'efficiency'
+          ? 'bg-eco-green text-eco-bg shadow-sm'
+          : 'text-eco-muted hover:text-white'
+      }`}
+    >
+      <BarChart2 className="w-3.5 h-3.5" />
+      Efficiency
+    </button>
+    <button
+      onClick={() => onSortChange('carbon')}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+        sortBy === 'carbon'
+          ? 'bg-eco-blue text-white shadow-sm'
+          : 'text-eco-muted hover:text-white'
+      }`}
+    >
+      <SortAsc className="w-3.5 h-3.5" />
+      Carbon
+    </button>
+  </div>
+))
+
 export default function Header({
   sortBy,
   onSortChange,
   onSeed,
   seeding,
   lastUpdated,
-  countdown,
   totalCarbon,
   onRefresh,
 }: HeaderProps) {
+  const [countdown, setCountdown] = useState(30)
   const liveCo2 = useLiveCarbonTick(totalCarbon)
+
+  // Countdown + auto-refresh every 30s (local to Header to prevent button instability)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          onRefresh()
+          return 30
+        }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [onRefresh])
 
   return (
     <header className="sticky top-0 z-30 bg-eco-bg/80 backdrop-blur-xl border-b border-eco-border/30">
@@ -81,30 +128,7 @@ export default function Header({
           {/* Right controls */}
           <div className="flex items-center gap-2">
             {/* Sort Toggle */}
-            <div className="hidden sm:flex items-center gap-1 bg-eco-surface border border-eco-border/40 rounded-xl p-1">
-              <button
-                onClick={() => onSortChange('efficiency')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  sortBy === 'efficiency'
-                    ? 'bg-eco-green text-eco-bg shadow-sm'
-                    : 'text-eco-muted hover:text-white'
-                }`}
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-                Efficiency
-              </button>
-              <button
-                onClick={() => onSortChange('carbon')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  sortBy === 'carbon'
-                    ? 'bg-eco-blue text-white shadow-sm'
-                    : 'text-eco-muted hover:text-white'
-                }`}
-              >
-                <SortAsc className="w-3.5 h-3.5" />
-                Carbon
-              </button>
-            </div>
+            <SortControls sortBy={sortBy} onSortChange={onSortChange} />
 
             {/* Refresh with countdown */}
             <button

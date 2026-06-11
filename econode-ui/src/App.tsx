@@ -4,6 +4,7 @@ import SummaryCards from './components/SummaryCards'
 import Leaderboard from './components/Leaderboard'
 import TeamModal from './components/TeamModal'
 import CarbonCharts from './components/CarbonCharts'
+import TeamSearch from './components/TeamSearch'
 
 export interface LeaderboardEntry {
   team_name: string
@@ -54,7 +55,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
-  const [countdown, setCountdown] = useState(30)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const fetchLeaderboard = useCallback(async () => {
     try {
@@ -93,6 +94,31 @@ export default function App() {
     setLoadingTeam(false)
   }
 
+  const handleSearchTeam = (query: string) => {
+    setSearchQuery(query)
+  }
+
+  const handleSelectSearchResult = async (teamName: string) => {
+    setSearchQuery('')
+    await handleTeamClick(teamName)
+  }
+
+  // Get all teams for search
+  const allTeams: LeaderboardEntry[] = [
+    ...(leaderboard?.top_performers_green_zone ?? []),
+    ...(leaderboard?.bottom_performers_action_required ?? []),
+  ].filter(
+    (team, index, self) =>
+      index === self.findIndex((t) => t.team_name === team.team_name),
+  )
+
+  // Filter teams based on search query
+  const searchResults = searchQuery.trim() 
+    ? allTeams.filter(team =>
+        team.team_name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : []
+
   const seedDatabase = async () => {
     setSeeding(true)
     try {
@@ -105,29 +131,7 @@ export default function App() {
 
   useEffect(() => {
     fetchLeaderboard()
-  }, [fetchLeaderboard])
-
-  // Countdown + auto-refresh every 30s
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          fetchLeaderboard()
-          return 30
-        }
-        return c - 1
-      })
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [fetchLeaderboard])
-
-  const allTeams: LeaderboardEntry[] = [
-    ...(leaderboard?.top_performers_green_zone ?? []),
-    ...(leaderboard?.bottom_performers_action_required ?? []),
-  ].filter(
-    (team, index, self) =>
-      index === self.findIndex((t) => t.team_name === team.team_name),
-  )
+  }, [sortBy, fetchLeaderboard])
 
   // All calculations come from backend - no UI calculations
   const totalCarbon = leaderboard?.metadata.total_carbon_kg ?? 0
@@ -150,7 +154,6 @@ export default function App() {
           onSeed={seedDatabase}
           seeding={seeding}
           lastUpdated={lastUpdated}
-          countdown={countdown}
           totalCarbon={totalCarbon}
           onRefresh={fetchLeaderboard}
         />
@@ -162,6 +165,13 @@ export default function App() {
             <EmptyState onSeed={seedDatabase} seeding={seeding} />
           ) : (
             <>
+              <TeamSearch 
+                searchQuery={searchQuery}
+                onSearchChange={handleSearchTeam}
+                searchResults={searchResults}
+                onSelectResult={handleSelectSearchResult}
+                loading={loadingTeam}
+              />
               <SummaryCards
                 totalTeams={leaderboard.metadata.total_teams_logged}
                 totalCarbon={totalCarbon}
