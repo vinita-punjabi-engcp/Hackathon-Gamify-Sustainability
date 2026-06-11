@@ -149,15 +149,8 @@ class SustainabilityService:
 
     def get_leaderboard(self, sort_by: str = "efficiency") -> dict:
         """Discovers ALL active namespaces in telemetry history and aggregates a leaderboard."""
-        unique_namespaces = self.db.query(ClusterMetric.namespace).distinct().all()
-
-        processed_list = []
-        for (ns,) in unique_namespaces:
-            metrics_computed = self.compute_live_metrics(namespace=ns, team_meta=self._meta_for(ns))
-            # NOTE: pre-existing behavior — active namespaces are appended twice.
-            if metrics_computed["cpu_usage_cores"] > 0.1:
-                processed_list.append(metrics_computed)
-            processed_list.append(metrics_computed)
+        # One ranked row per unique namespace (shared source of truth with search).
+        processed_list = self._ranked_namespaces(sort_by=sort_by)
 
         total_carbon = sum(item["yesterday_carbon_kg"] for item in processed_list)
         total_wasted = sum(item["wasted_carbon_kg"] for item in processed_list)
@@ -165,8 +158,6 @@ class SustainabilityService:
             round(sum(item["efficiency_score_pct"] for item in processed_list) / len(processed_list), 1)
             if processed_list else 0.0
         )
-
-        self._rank(processed_list, sort_by)
 
         top_five = processed_list[:5]
         bottom_five = processed_list[-5:] if len(processed_list) > 5 else []
@@ -183,6 +174,8 @@ class SustainabilityService:
             },
             "top_performers_green_zone": top_five,
             "bottom_performers_action_required": bottom_five,
+            # Full ranked list so the UI can surface the mid-range teams too.
+            "all_performers_ranked": processed_list,
         }
 
     def search(self, query: str, sort_by: str = "efficiency") -> dict:

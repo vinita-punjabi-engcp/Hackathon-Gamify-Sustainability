@@ -343,9 +343,103 @@ function ZoneHeader({
   )
 }
 
+function CompactRow({
+  entry,
+  onTeamClick,
+}: {
+  entry: LeaderboardEntry
+  onTeamClick: (name: string) => void
+}) {
+  const eff = entry.efficiency_score_pct
+  const color = eff >= 70 ? '#00ff87' : eff >= 40 ? '#f6ad55' : '#fc8181'
+
+  return (
+    <button
+      onClick={() => onTeamClick(entry.team_name)}
+      className="w-full flex items-center gap-4 px-4 py-3 text-left hover:bg-eco-bg/40 transition-colors"
+    >
+      <span className="w-10 shrink-0 text-eco-muted font-mono text-xs">#{entry.rank_placement}</span>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-white text-sm truncate">{entry.team_name}</div>
+        <div className="text-eco-muted text-xs font-mono truncate">{entry.namespace}</div>
+      </div>
+      <div className="w-28 shrink-0 hidden sm:block">
+        <div className="h-1.5 bg-eco-bg rounded-full overflow-hidden">
+          <div className="h-full rounded-full" style={{ width: `${eff}%`, background: color }} />
+        </div>
+      </div>
+      <span className="w-16 shrink-0 text-right font-mono font-bold text-xs" style={{ color }}>
+        {eff.toFixed(1)}%
+      </span>
+      <span className="w-24 shrink-0 text-right text-eco-muted font-mono text-xs hidden md:block">
+        {entry.yesterday_carbon_kg.toFixed(2)} kg
+      </span>
+      <ChevronRight className="w-4 h-4 shrink-0 text-eco-muted" />
+    </button>
+  )
+}
+
+const FULL_RANKING_PAGE_SIZE = 12
+
+function FullRanking({
+  entries,
+  onTeamClick,
+}: {
+  entries: LeaderboardEntry[]
+  onTeamClick: (name: string) => void
+}) {
+  const [page, setPage] = useState(0)
+  const totalPages = Math.max(1, Math.ceil(entries.length / FULL_RANKING_PAGE_SIZE))
+
+  // Reset to the first page whenever the ranking changes (e.g. sort toggle).
+  useEffect(() => {
+    setPage(0)
+  }, [entries])
+
+  if (entries.length === 0) return null
+
+  const start = page * FULL_RANKING_PAGE_SIZE
+  const slice = entries.slice(start, start + FULL_RANKING_PAGE_SIZE)
+
+  const pagerBtn =
+    'px-3 py-1.5 rounded-lg border border-eco-border/40 text-eco-muted hover:text-white hover:border-eco-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors'
+
+  return (
+    <div className="mt-10 animate-fade-in">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-bold text-base text-white">
+          📊 Full Ranking
+          <span className="ml-2 text-eco-muted font-normal text-sm">— all {entries.length} teams</span>
+        </h2>
+        <div className="flex items-center gap-2 text-xs">
+          <button className={pagerBtn} disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+            Prev
+          </button>
+          <span className="text-eco-muted font-mono">
+            {page + 1} / {totalPages}
+          </span>
+          <button
+            className={pagerBtn}
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+      <div className="rounded-xl border border-eco-border/30 bg-eco-surface overflow-hidden divide-y divide-eco-border/20">
+        {slice.map((entry) => (
+          <CompactRow key={entry.namespace} entry={entry} onTeamClick={onTeamClick} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Leaderboard({ leaderboard, onTeamClick }: LeaderboardProps) {
   const top = leaderboard.top_performers_green_zone
   const bottom = leaderboard.bottom_performers_action_required
+  const allRanked = leaderboard.all_performers_ranked ?? []
 
   return (
     <section className="animate-fade-in">
@@ -414,6 +508,9 @@ export default function Leaderboard({ leaderboard, onTeamClick }: LeaderboardPro
           </div>
         </div>
       </div>
+
+      {/* Full ranking — surfaces every team, not just the extremes */}
+      <FullRanking entries={allRanked} onTeamClick={onTeamClick} />
     </section>
   )
 }

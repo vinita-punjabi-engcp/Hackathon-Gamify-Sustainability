@@ -28,6 +28,7 @@ export interface LeaderboardData {
   }
   top_performers_green_zone: LeaderboardEntry[]
   bottom_performers_action_required: LeaderboardEntry[]
+  all_performers_ranked: LeaderboardEntry[]
 }
 
 export interface TeamDetail {
