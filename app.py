@@ -29,7 +29,7 @@ def compute_live_metrics(namespace: str, db: Session, team_meta: Optional[TeamMe
     yesterday_carbon_kg = round((latest_snapshot.carbon_co2g / 1000.0), 4) if latest_snapshot else 0.0
 
     # 2. Extract quotas or fall back to default constraints if unconfigured
-    team_name = team_meta.team_name if team_meta else f"Team {namespace.capitalize()}"
+    team_name = team_meta.team_name if team_meta else f"{namespace.capitalize()}"
     region = team_meta.region if team_meta else "eastus"
     service_name = team_meta.service_name if team_meta else f"{namespace}-service"
     quota_cpu = team_meta.resource_quota_cpu if team_meta else 8.0
