@@ -64,7 +64,6 @@ export default function App() {
       const data: LeaderboardData = await res.json()
       setLeaderboard(data)
       setLastUpdated(new Date())
-      setCountdown(30)
     } catch {
       // keep previous data
     } finally {
@@ -119,10 +118,9 @@ export default function App() {
       )
     : []
 
-  const seedDatabase = async () => {
+  const refreshLatestData = async () => {
     setSeeding(true)
     try {
-      await fetch('/api/admin/seed-mock-database', { method: 'POST' })
       await fetchLeaderboard()
     } finally {
       setSeeding(false)
@@ -151,11 +149,10 @@ export default function App() {
         <Header
           sortBy={sortBy}
           onSortChange={setSortBy}
-          onSeed={seedDatabase}
-          seeding={seeding}
+          onRefresh={refreshLatestData}
+          loading={seeding}
           lastUpdated={lastUpdated}
           totalCarbon={totalCarbon}
-          onRefresh={fetchLeaderboard}
         />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
