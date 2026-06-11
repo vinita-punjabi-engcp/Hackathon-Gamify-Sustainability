@@ -138,7 +138,6 @@ export default function Header({
             })}
           </span>
           <span className="text-eco-border">·</span>
-          <span>Kubernetes Namespace GreenOps v2.0</span>
         </div>
       </div>
     </header>
