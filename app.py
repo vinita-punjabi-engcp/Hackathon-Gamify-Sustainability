@@ -181,3 +181,45 @@ def seed_database(db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
+
+
+class SearchSuggestion(BaseModel):
+    team_name: str
+    namespace: str
+
+class SearchResponse(BaseModel):
+    query_string: str
+    total_matches_found: int
+    options: List[SearchSuggestion]
+
+@app.get("/api/search", response_model=SearchResponse)
+def search_teams_only(
+    query: str = Query(..., description="Case-insensitive search string targeting Team Names only"),
+    db: Session = Depends(get_db)
+):
+    """
+    Scans the database columns matching 'team_name' against partial user inputs.
+    Returns clean key-value pairs to populate frontend interactive dropdown menus.
+    """
+    if not query.strip():
+        return {"query_string": query, "total_matches_found": 0, "options": []}
+
+    # Format query for case-insensitive SQL matching (e.g., "%1ds%")
+    search_term = f"%{query.lower()}%"
+
+    # Query strictly against the team_name column
+    matched_records = db.query(TeamMetricModel).filter(
+        TeamMetricModel.team_name.cast(String).ilike(search_term)
+    ).all()
+
+    # Format the payload to supply options for the user interface dropdown
+    dropdown_options = [
+        SearchSuggestion(team_name=record.team_name, namespace=record.namespace)
+        for record in matched_records
+    ]
+
+    return SearchResponse(
+        query_string=query,
+        total_matches_found=len(dropdown_options),
+        options=dropdown_options
+    )
