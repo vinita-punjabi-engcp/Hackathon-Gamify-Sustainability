@@ -8,10 +8,11 @@ and server-side search results. Routes stay thin by delegating here.
 import datetime
 from typing import List, Optional
 
-from sqlalchemy import desc, func
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from src.db.models import ClusterMetric, TeamMetricModel
+from src.services.scoring import DEFAULT_SCORER, ScoringContext, get_scorer
 
 # Carbon model constants (10W per core * 24h * Azure PUE * grid intensity).
 _WATTS_PER_CORE = 10
@@ -29,21 +30,12 @@ _MOCK_TEAMS = [
 class SustainabilityService:
     """Stateless-per-request service bound to a single SQLAlchemy session."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, scorer: str = DEFAULT_SCORER):
         self.db = db
+        # Pluggable efficiency metric (Strategy pattern); see src/services/scoring.py.
+        self.scorer = get_scorer(scorer)
 
     # --- internal helpers -------------------------------------------------
-    def _green_score(self, active_cores: float) -> float:
-        """Percentile rank: % of namespaces consuming MORE cores. Higher = greener."""
-        subq = (
-            self.db.query(func.avg(ClusterMetric.active_cores).label("avg_cores"))
-            .group_by(ClusterMetric.namespace)
-            .subquery()
-        )
-        total = self.db.query(func.count()).select_from(subq).scalar() or 1
-        heavier = self.db.query(func.count()).select_from(subq).filter(subq.c.avg_cores > active_cores).scalar() or 0
-        return round((heavier / total) * 100, 1)
-
     def _meta_for(self, namespace: str) -> Optional[TeamMetricModel]:
         return (
             self.db.query(TeamMetricModel)
@@ -74,8 +66,12 @@ class SustainabilityService:
         quota_cpu = team_meta.resource_quota_cpu if team_meta else 8.0
         quota_mem = team_meta.resource_quota_mem if team_meta else 32.0
 
-        # 3. Calculate operational sustainability math
-        green_score = self._green_score(active_cores)
+        # 3. Calculate operational sustainability math.
+        # Efficiency is delegated to the configured scoring strategy so the
+        # ranking metric can be swapped without touching this method.
+        efficiency_score = self.scorer.score(
+            ScoringContext(db=self.db, namespace=namespace, active_cores=active_cores, quota_cpu=quota_cpu)
+        )
         wasted_cores = max(0.0, quota_cpu - active_cores)
         wasted_carbon_kg = round(
             (wasted_cores * _WATTS_PER_CORE * _HOURS_PER_DAY * _AZURE_PUE * _GRID_INTENSITY_KG_PER_KWH) / 1000.0,
@@ -93,7 +89,7 @@ class SustainabilityService:
             "memory_usage_gb": 16.0,  # Placeholder telemetry
             "resource_quota_cpu": quota_cpu,
             "resource_quota_mem": quota_mem,
-            "efficiency_score_pct": green_score,
+            "efficiency_score_pct": efficiency_score,
             "yesterday_carbon_kg": yesterday_carbon_kg,
             "wasted_carbon_kg": wasted_carbon_kg,
             "waste_ratio": waste_ratio,
@@ -138,11 +134,14 @@ class SustainabilityService:
         strategies = []
         if data["efficiency_score_pct"] < 50.0:
             strategies.append(
-                f"HIGH EMITTER: This service is in the bottom 50% of peers with a green score of {data['efficiency_score_pct']}%. "
-                f"Reducing active core consumption will improve your standing and save up to {data['wasted_carbon_kg']}kg of idle CO2."
+                f"OVER-PROVISIONED: This service averages only {data['efficiency_score_pct']}% utilization of its reserved CPU quota. "
+                f"Right-sizing the quota closer to actual usage will cut up to {data['wasted_carbon_kg']}kg of idle CO2."
             )
         else:
-            strategies.append(f"GREEN ZONE: This service scores {data['efficiency_score_pct']}% — lighter than most peers on carbon footprint.")
+            strategies.append(
+                f"WELL RIGHT-SIZED: This service runs at {data['efficiency_score_pct']}% average utilization — "
+                f"an efficient match between reserved capacity and actual load."
+            )
 
         data["ai_mitigation_strategies"] = strategies
         return data

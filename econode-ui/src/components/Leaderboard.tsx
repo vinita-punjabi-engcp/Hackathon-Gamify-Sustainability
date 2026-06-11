@@ -356,7 +356,8 @@ function CompactRow({
   return (
     <button
       onClick={() => onTeamClick(entry.team_name)}
-      className="w-full flex items-center gap-4 px-4 py-3 text-left hover:bg-eco-bg/40 transition-colors"
+      title={`Inspect ${entry.team_name}`}
+      className="group w-full flex items-center gap-4 px-4 py-3 text-left cursor-pointer hover:bg-eco-bg/40 transition-colors"
     >
       <span className="w-10 shrink-0 text-eco-muted font-mono text-xs">#{entry.rank_placement}</span>
       <div className="flex-1 min-w-0">
@@ -374,7 +375,7 @@ function CompactRow({
       <span className="w-24 shrink-0 text-right text-eco-muted font-mono text-xs hidden md:block">
         {entry.yesterday_carbon_kg.toFixed(2)} kg
       </span>
-      <ChevronRight className="w-4 h-4 shrink-0 text-eco-muted" />
+      <ChevronRight className="w-4 h-4 shrink-0 text-eco-muted group-hover:text-eco-blue group-hover:translate-x-0.5 transition-all" />
     </button>
   )
 }
