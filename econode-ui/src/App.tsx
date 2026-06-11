@@ -12,6 +12,7 @@ export interface LeaderboardEntry {
   efficiency_score_pct: number
   yesterday_carbon_kg: number
   wasted_carbon_kg: number
+  waste_ratio: number
   rank_placement: number
 }
 
@@ -20,6 +21,9 @@ export interface LeaderboardData {
     total_teams_logged: number
     sorting_metric: string
     retrieved_at: string
+    total_carbon_kg: number
+    total_wasted_kg: number
+    avg_efficiency_pct: number
   }
   top_performers_green_zone: LeaderboardEntry[]
   bottom_performers_action_required: LeaderboardEntry[]
@@ -37,6 +41,7 @@ export interface TeamDetail {
   efficiency_score_pct: number
   yesterday_carbon_kg: number
   wasted_carbon_kg: number
+  waste_ratio: number
   ai_mitigation_strategies: string[]
 }
 
@@ -124,12 +129,10 @@ export default function App() {
       index === self.findIndex((t) => t.team_name === team.team_name),
   )
 
-  const totalCarbon = allTeams.reduce((sum, t) => sum + t.yesterday_carbon_kg, 0)
-  const totalWasted = allTeams.reduce((sum, t) => sum + t.wasted_carbon_kg, 0)
-  const avgEfficiency =
-    allTeams.length
-      ? allTeams.reduce((sum, t) => sum + t.efficiency_score_pct, 0) / allTeams.length
-      : 0
+  // All calculations come from backend - no UI calculations
+  const totalCarbon = leaderboard?.metadata.total_carbon_kg ?? 0
+  const totalWasted = leaderboard?.metadata.total_wasted_kg ?? 0
+  const avgEfficiency = leaderboard?.metadata.avg_efficiency_pct ?? 0
 
   return (
     <div className="min-h-screen bg-eco-bg grid-bg">

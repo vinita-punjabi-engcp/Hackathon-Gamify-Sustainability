@@ -116,10 +116,6 @@ function TeamCard({
 
   const badge = getBadge(entry.efficiency_score_pct)
   const rank = getRankDisplay(entry.rank_placement)
-  const wasteRatio =
-    entry.yesterday_carbon_kg + entry.wasted_carbon_kg > 0
-      ? entry.wasted_carbon_kg / (entry.yesterday_carbon_kg + entry.wasted_carbon_kg)
-      : 0
 
   const borderBase = isGreenZone ? 'rgba(0,255,135,0.12)' : 'rgba(252,129,129,0.12)'
   const borderHover = isGreenZone ? 'rgba(0,255,135,0.35)' : 'rgba(252,129,129,0.35)'
@@ -189,7 +185,7 @@ function TeamCard({
           <div className="text-eco-muted text-xs mb-0.5">CO₂e Wasted</div>
           <div
             className="font-bold font-mono text-sm"
-            style={{ color: wasteRatio > 0.5 ? '#fc8181' : '#f6ad55' }}
+            style={{ color: entry.waste_ratio > 0.5 ? '#fc8181' : '#f6ad55' }}
           >
             {entry.wasted_carbon_kg.toFixed(3)}
             <span className="text-eco-muted text-xs font-normal ml-1">kg</span>

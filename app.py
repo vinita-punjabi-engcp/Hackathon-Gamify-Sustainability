@@ -99,7 +99,20 @@ class TeamMetricsResponse(BaseModel):
     efficiency_score_pct: float
     yesterday_carbon_kg: float
     wasted_carbon_kg: float
+    waste_ratio: float
     ai_mitigation_strategies: List[str]
+
+    class Config:
+        from_attributes = True
+
+
+class LeaderboardMetadata(BaseModel):
+    total_teams_logged: int
+    sorting_metric: str
+    retrieved_at: str
+    total_carbon_kg: float
+    total_wasted_kg: float
+    avg_efficiency_pct: float
 
     class Config:
         from_attributes = True
@@ -132,6 +145,10 @@ def get_team_metrics(team_name: str = Query(..., description="Primary Key identi
     else:
         strategies.append("OPTIMAL BOUNDS: Current allocation meets green target criteria smoothly.")
 
+    # Calculate waste ratio
+    total_carbon = processed.yesterday_carbon_kg + processed.wasted_carbon_kg
+    waste_ratio = round(processed.wasted_carbon_kg / total_carbon, 3) if total_carbon > 0 else 0.0
+
     # 2. FIXED LOGIC: Manually assemble the Pydantic response model to cleanly bridge 
     # the SQL table columns with our runtime dynamic strategy list
     return TeamMetricsResponse(
@@ -146,6 +163,7 @@ def get_team_metrics(team_name: str = Query(..., description="Primary Key identi
         efficiency_score_pct=processed.efficiency_score_pct,
         yesterday_carbon_kg=processed.yesterday_carbon_kg,
         wasted_carbon_kg=processed.wasted_carbon_kg,
+        waste_ratio=waste_ratio,
         ai_mitigation_strategies=strategies  # Clean injection without schema validation crashes!
     )
 
@@ -159,15 +177,23 @@ def get_leaderboard(sort_by: str = Query("efficiency", description="Sort criteri
     processed_list = []
     for record in all_records:
         mutated = run_sustainability_math(record)
+        total_carbon = mutated.yesterday_carbon_kg + mutated.wasted_carbon_kg
+        waste_ratio = round(mutated.wasted_carbon_kg / total_carbon, 3) if total_carbon > 0 else 0.0
         processed_list.append({
             "team_name": mutated.team_name,
             "namespace": mutated.namespace,
             "region": mutated.region,
             "efficiency_score_pct": mutated.efficiency_score_pct,
             "yesterday_carbon_kg": mutated.yesterday_carbon_kg,
-            "wasted_carbon_kg": mutated.wasted_carbon_kg
+            "wasted_carbon_kg": mutated.wasted_carbon_kg,
+            "waste_ratio": waste_ratio
         })
     db.commit()
+
+    # Calculate aggregates BEFORE sorting
+    total_carbon = sum(item["yesterday_carbon_kg"] for item in processed_list)
+    total_wasted = sum(item["wasted_carbon_kg"] for item in processed_list)
+    avg_efficiency = round(sum(item["efficiency_score_pct"] for item in processed_list) / len(processed_list), 1) if processed_list else 0.0
 
     # Sort logic
     if sort_by == "carbon":
@@ -187,7 +213,10 @@ def get_leaderboard(sort_by: str = Query("efficiency", description="Sort criteri
         "metadata": {
             "total_teams_logged": len(processed_list),
             "sorting_metric": sort_by,
-            "retrieved_at": datetime.datetime.utcnow().isoformat()
+            "retrieved_at": datetime.datetime.utcnow().isoformat(),
+            "total_carbon_kg": round(total_carbon, 3),
+            "total_wasted_kg": round(total_wasted, 3),
+            "avg_efficiency_pct": avg_efficiency
         },
         "top_performers_green_zone": top_five,
         "bottom_performers_action_required": bottom_five
