@@ -54,7 +54,6 @@ export default function App() {
   const [loadingTeam, setLoadingTeam] = useState(false)
   const [sortBy, setSortBy] = useState<'efficiency' | 'carbon'>('efficiency')
   const [loading, setLoading] = useState(true)
-  const [seeding, setSeeding] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<LeaderboardEntry[]>([])
@@ -147,15 +146,6 @@ export default function App() {
     }
   }, [searchQuery, sortBy])
 
-  const refreshLatestData = async () => {
-    setSeeding(true)
-    try {
-      await fetchLeaderboard()
-    } finally {
-      setSeeding(false)
-    }
-  }
-
   useEffect(() => {
     fetchLeaderboard()
   }, [sortBy, fetchLeaderboard])
@@ -178,8 +168,6 @@ export default function App() {
         <Header
           sortBy={sortBy}
           onSortChange={setSortBy}
-          onRefresh={refreshLatestData}
-          loading={seeding}
           lastUpdated={lastUpdated}
           totalCarbon={totalCarbon}
         />
@@ -189,23 +177,26 @@ export default function App() {
           {loading ? (
             <LoadingSkeleton />
           ) : !leaderboard || leaderboard.metadata.total_teams_logged === 0 ? (
-            <EmptyState onSeed={seedDatabase} seeding={seeding} />
+            <EmptyState />
           ) : (
             <>
-              <TeamSearch 
+              <TeamSearch
                 searchQuery={searchQuery}
                 onSearchChange={handleSearchTeam}
                 searchResults={searchResults}
                 onSelectResult={handleSelectSearchResult}
                 loading={searchLoading || loadingTeam}
               />
+              <div className="pt-4" />
               <SummaryCards
                 totalTeams={leaderboard.metadata.total_teams_logged}
                 totalCarbon={totalCarbon}
                 totalWasted={totalWasted}
                 avgEfficiency={avgEfficiency}
               />
+              <div className="pt-6" />
               <Leaderboard leaderboard={leaderboard} onTeamClick={handleTeamClick} />
+              <div className="pt-6" />
               <CarbonCharts allTeams={allTeams} />
             </>
           )}
@@ -237,7 +228,7 @@ function LoadingSkeleton() {
   )
 }
 
-function EmptyState({ onSeed, seeding }: { onSeed: () => void; seeding: boolean }) {
+function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[65vh] text-center space-y-8 animate-fade-in">
       <div className="relative">
@@ -247,32 +238,10 @@ function EmptyState({ onSeed, seeding }: { onSeed: () => void; seeding: boolean 
       <div>
         <h2 className="text-3xl font-bold text-white mb-3">No Data Tracked Yet</h2>
         <p className="text-eco-muted max-w-md leading-relaxed">
-          Your GreenOps database is empty. Seed it with realistic mock data to explore the full
-          leaderboard, carbon charts, and team insights.
+          No teams are currently being tracked. Run the ingestion pipeline to populate the leaderboard
+          with Kubernetes namespace metrics from your cloud infrastructure.
         </p>
       </div>
-      <button
-        onClick={onSeed}
-        disabled={seeding}
-        className="group px-8 py-4 bg-eco-green text-eco-bg font-bold text-lg rounded-2xl
-          hover:bg-eco-teal transition-all duration-200 disabled:opacity-50
-          shadow-lg hover:shadow-eco-green/25 hover:shadow-xl
-          flex items-center gap-3"
-      >
-        {seeding ? (
-          <>
-            <span className="animate-spin text-xl">⚡</span> Seeding Database…
-          </>
-        ) : (
-          <>
-            <span className="text-xl group-hover:scale-110 transition-transform">⚡</span>
-            Load Demo Data
-          </>
-        )}
-      </button>
-      <p className="text-eco-muted/60 text-sm">
-        Populates 6 realistic engineering teams with Kubernetes namespace metrics
-      </p>
     </div>
   )
 }
