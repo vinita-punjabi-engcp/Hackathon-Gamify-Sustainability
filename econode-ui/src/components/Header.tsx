@@ -1,11 +1,9 @@
 import { useState, useEffect, memo } from 'react'
-import { Zap, Leaf, BarChart2, SortAsc } from 'lucide-react'
+import { Leaf, BarChart2, SortAsc } from 'lucide-react'
 
 interface HeaderProps {
   sortBy: 'efficiency' | 'carbon'
   onSortChange: (v: 'efficiency' | 'carbon') => void
-  onRefresh: () => void
-  loading: boolean
   lastUpdated: Date
   totalCarbon: number
 }
@@ -60,8 +58,6 @@ const SortControls = memo(({
 export default function Header({
   sortBy,
   onSortChange,
-  onRefresh,
-  loading,
   lastUpdated,
   totalCarbon,
 }: HeaderProps) {
@@ -112,18 +108,6 @@ export default function Header({
           <div className="flex items-center gap-2">
             {/* Sort Toggle */}
             <SortControls sortBy={sortBy} onSortChange={onSortChange} />
-
-            {/* Refresh Data button */}
-            <button
-              onClick={onRefresh}
-              disabled={loading}
-              className="flex items-center gap-1.5 px-4 py-2 bg-eco-green text-eco-bg font-semibold text-sm
-                rounded-xl hover:bg-eco-teal transition-all duration-200 disabled:opacity-60
-                shadow-md hover:shadow-eco-green/30 hover:shadow-lg"
-            >
-              <Zap className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">{loading ? 'Seeding…' : 'SEED DATA'}</span>
-            </button>
           </div>
         </div>
 
